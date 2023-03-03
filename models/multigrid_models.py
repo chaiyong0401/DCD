@@ -11,6 +11,7 @@ import torch.nn.functional as F
 
 from .distributions import Categorical  
 from .common import *
+import numpy as np
 
 class MultigridNetwork(DeviceAwareModule):
     """
@@ -86,10 +87,19 @@ class MultigridNetwork(DeviceAwareModule):
             make_fc_layers_with_hidden_sizes(value_fc_layers, input_size=self.base_output_size),
             init_(nn.Linear(value_fc_layers[-1], 1))
         )
-
+        self.critic2 = nn.Sequential(
+            make_fc_layers_with_hidden_sizes(value_fc_layers, input_size=self.base_output_size),
+            init_(nn.Linear(value_fc_layers[-1], 1))
+        )
+        self.critic3 = nn.Sequential(
+            make_fc_layers_with_hidden_sizes(value_fc_layers, input_size=self.base_output_size),
+            init_(nn.Linear(value_fc_layers[-1], 1))
+        )
         apply_init_(self.modules())
 
         self.train()
+        
+
 
     @property
     def is_recurrent(self):
@@ -150,16 +160,21 @@ class MultigridNetwork(DeviceAwareModule):
             B = inputs['image'].shape[0]
             action = torch.zeros((B,1), dtype=torch.int64, device=self.device)
             values = torch.zeros((B,1), device=self.device)
+            values2 = torch.zeros((B,1), device = self.device)
+            values3 = torch.zeros((B,1), device = self.device)
             action_log_dist = torch.ones(B, self.action_space.n, device=self.device)
             for b in range(B):
                 action[b] = self.action_space.sample()
 
-            return values, action, action_log_dist, rnn_hxs
+            return values, values2, values3, action, action_log_dist, rnn_hxs
 
         core_features, rnn_hxs = self._forward_base(inputs, rnn_hxs, masks)
 
         dist = self.actor(core_features)
         value = self.critic(core_features)
+        value2 = self.critic2(core_features)
+        value3 = self.critic3(core_features)
+        # value = (value+value2+value3)/3
 
         if deterministic:
             action = dist.mode()
@@ -168,19 +183,36 @@ class MultigridNetwork(DeviceAwareModule):
 
         action_log_dist = dist.logits
 
-        return value, action, action_log_dist, rnn_hxs
+        return value, value2, value3, action, action_log_dist, rnn_hxs
 
     def get_value(self, inputs, rnn_hxs, masks):
         core_features, rnn_hxs = self._forward_base(inputs, rnn_hxs, masks)
         return self.critic(core_features)
+    def get_value2(self, inputs, rnn_hxs, masks):
+        core_features, rnn_hxs = self._forward_base(inputs, rnn_hxs, masks)
+        return self.critic2(core_features)
+    def get_value3(self, inputs, rnn_hxs, masks):
+        core_features, rnn_hxs = self._forward_base(inputs, rnn_hxs, masks)
+        return self.critic3(core_features)
+    # def get_value(self, inputs, rnn_hxs, masks):
+    #     core_features, rnn_hxs = self._forward_base(inputs, rnn_hxs, masks)
+    #     value = self.critic(core_features)
+    #     value2 = self.critic2(core_features)
+    #     value3 = self.critic3(core_features)
+
+    #     return value, value2, value3
+    
 
     def evaluate_actions(self, inputs, rnn_hxs, masks, action):
         core_features, rnn_hxs = self._forward_base(inputs, rnn_hxs, masks)
 
         dist = self.actor(core_features)
         value = self.critic(core_features)
+        value2 = self.critic2(core_features)
+        value3 = self.critic3(core_features)
+        #value = (value+value2+value3)/3
 
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy().mean()
 
-        return value, action_log_probs, dist_entropy, rnn_hxs
+        return value, value2, value3, action_log_probs, dist_entropy, rnn_hxs

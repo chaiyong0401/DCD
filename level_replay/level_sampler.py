@@ -303,34 +303,71 @@ class LevelSampler():
         max_score = 1 - scores.min().item()
 
         return mean_score, max_score
-
+## change
     def _average_gae(self, **kwargs):
+        print("use average gae")
         returns = kwargs['returns']
+        # returns2 = kwargs['returns']
+        # returns3 = kwargs['returns']
         value_preds = kwargs['value_preds']
+        value_preds2 = kwargs['value_preds2']
+        value_preds3 = kwargs['value_preds3']
+        value_preds = (value_preds+value_preds2+value_preds3)/3
 
         advantages = returns - value_preds
+        # advantages2 = returns2 - value_preds2
+        # advantages3 = returns3 - value_preds3
 
         mean_score = advantages.mean().item()
         max_score = advantages.max().item()
+        # mean_score2 = advantages2.mean().item()
+        # max_score2 = advantages2.max().item()
+        # mean_score3 = advantages3.mean().item()
+        # max_score3 = advantages3.max().item()
+        
+        # mean_score = mean(mean_score1,mean_score2,mean_socre3)
+        # max_score = max(max_score1,max_score2,max_score3)
+        
 
         return mean_score, max_score
 
     def _average_value_l1(self, **kwargs):
+        print("use average value l1")
         returns = kwargs['returns']
         value_preds = kwargs['value_preds']
+        # returns2 = kwargs['returns']
+        value_preds2 = kwargs['value_preds2']
+        # returns3 = kwargs['returns']
+        value_preds3 = kwargs['value_preds3']
+        value_preds = (value_preds+value_preds2+value_preds3)/3
 
         abs_advantages = (returns - value_preds).abs()
+        # abs_advantages2 = (returns2 - value_preds2).abs()
+        # abs_advantages3 = (returns3 - value_preds3).abs()
+
 
         mean_score = abs_advantages.mean().item()
         max_score = abs_advantages.max().item()
+        # mean_score2 = abs_advantages2.mean().item()
+        # max_score2 = abs_advantages2.max().item()
+        # mean_score3 = abs_advantages3.mean().item()
+        # max_score3 = abs_advantages3.max().item()
 
         return mean_score, max_score
 
     def _average_signed_value_loss(self, **kwargs):
+        print("use average signed value loss")
         returns = kwargs['returns']
+        # returns2 = kwargs['returns']
+        # returns3 = kwargs['returns']
         value_preds = kwargs['value_preds']
+        value_preds2 = kwargs['value_preds2']
+        value_preds3 = kwargs['value_preds3']
+        value_preds = (value_preds+value_preds2+value_preds3)/3
 
         advantages = returns - value_preds
+        # advantages2 = returns2 - value_preds2
+        # advantages3 = returns3 - value_preds3
 
         mean_score = advantages.mean().item()
         max_score = advantages.max().item()
@@ -338,10 +375,18 @@ class LevelSampler():
         return mean_score, max_score
 
     def _average_positive_value_loss(self, **kwargs):
+        print("use average positive value loss")
         returns = kwargs['returns']
+        # returns2 = kwargs['returns2']
+        # returns3 = kwargs['returns3']
         value_preds = kwargs['value_preds']
+        value_preds2 = kwargs['value_preds2']
+        value_preds3 = kwargs['value_preds3']
+        value_preds = (value_preds+value_preds2+value_preds3)/3
 
         clipped_advantages = (returns - value_preds).clamp(0)
+        # clipped_advantages2 = (returns2 - value_preds2).clamp(0)
+        # clipped_advantages3 = (returns3 - value_preds3).clamp(0)
 
         mean_score = clipped_advantages.mean().item()
         max_score = clipped_advantages.max().item()
@@ -352,11 +397,14 @@ class LevelSampler():
         """
         Currently assumes sparse reward s.t. reward is 0 everywhere except final step
         """
+        print("use average grounded signed value loss")
         seed = kwargs['seed']
         seed_idx = self.seed2index.get(seed, None)
         actor_idx= kwargs['actor_index']
         done = kwargs['done']
         value_preds = kwargs['value_preds']
+        value_preds2 = kwargs['value_preds2']
+        value_preds3 = kwargs['value_preds3']
         episode_logits = kwargs['episode_logits']
 
         partial_steps = 0
@@ -375,8 +423,12 @@ class LevelSampler():
         if done and grounded_value is not None:
             if self.use_dense_rewards:
                 advantages = grounded_value - value_preds[0]
+                advantages2 = grounded_value - value_preds2[0]
+                advantages3 = grounded_value - value_preds3[0]
             else:
                 advantages = grounded_value - value_preds
+                advantages2 = grounded_value - value_preds2
+                advantages3 = grounded_value - value_preds3
 
             mean_score = (total_steps/new_steps)*advantages.mean().item()
             max_score = advantages.max().item()
@@ -389,11 +441,14 @@ class LevelSampler():
         """
         Currently assumes sparse reward s.t. reward is 0 everywhere except final step
         """
+        print("use average grounded positive value loss")
         seed = kwargs['seed']
         seed_idx = self.seed2index.get(seed, None)
         actor_idx= kwargs['actor_index']
         done = kwargs['done']
         value_preds = kwargs['value_preds']
+        value_preds2 = kwargs['value_preds2']
+        value_preds3 = kwargs['value_preds3']
         episode_logits = kwargs['episode_logits']
 
         partial_steps = 0
@@ -412,9 +467,15 @@ class LevelSampler():
         if done and grounded_value is not None:
             if self.use_dense_rewards:
                 advantages = grounded_value - value_preds[0]
+                advantages2 = grounded_value - value_preds2[0]
+                advantages3 = grounded_value - value_preds3[0]
             else:
                 advantages = grounded_value - value_preds
+                advantages2 = grounded_value - value_preds2
+                advantages3 = grounded_value - value_preds3
             advantages = advantages.clamp(0)
+            advantages2 = advantages2.clamp(0)
+            advantages3 = advantages3.clamp(0)
 
             mean_score = (total_steps/new_steps)*advantages.mean().item()
             max_score = advantages.max().item()
@@ -521,8 +582,12 @@ class LevelSampler():
 
                     if rollouts.use_popart:
                         score_function_kwargs['value_preds'] = rollouts.denorm_value_preds[start_t:t,actor_index]
+                        score_function_kwargs['value_preds2'] = rollouts.denorm_value_preds2[start_t:t,actor_index]
+                        score_function_kwargs['value_preds3'] = rollouts.denorm_value_preds3[start_t:t,actor_index]
                     else:
                         score_function_kwargs['value_preds'] = rollouts.value_preds[start_t:t,actor_index]
+                        score_function_kwargs['value_preds2'] = rollouts.value_preds2[start_t:t,actor_index]
+                        score_function_kwargs['value_preds3'] = rollouts.value_preds3[start_t:t,actor_index]
 
                 # Only perform score updates on non-cliffhanger episodes ending in 'done'
                 if not cliffhanger[t,actor_index]:
@@ -566,8 +631,12 @@ class LevelSampler():
 
                     if rollouts.use_popart:
                         score_function_kwargs['value_preds'] = rollouts.denorm_value_preds[start_t:t,actor_index]
+                        score_function_kwargs['value_preds2'] = rollouts.denorm_value_preds2[start_t:t,actor_index]
+                        score_function_kwargs['value_preds3'] = rollouts.denorm_value_preds3[start_t:t,actor_index]
                     else:
                         score_function_kwargs['value_preds'] = rollouts.value_preds[start_t:,actor_index]
+                        score_function_kwargs['value_preds2'] = rollouts.value_preds2[start_t:t,actor_index]
+                        score_function_kwargs['value_preds3'] = rollouts.value_preds3[start_t:t,actor_index]
 
                 score, max_score = score_function(**score_function_kwargs)
                 num_steps = len(episode_logits)

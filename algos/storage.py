@@ -75,9 +75,18 @@ class RolloutStorage(object):
                 self.truncated_obs = torch.zeros_like(self.obs)
         self.recurrent_hidden_states = torch.zeros(
             num_steps + 1, num_processes, recurrent_hidden_state_buffer_size)
+        
+        ## change 
         self.rewards = torch.zeros(num_steps, num_processes, 1)
+        self.rewards2 = torch.zeros(num_steps, num_processes, 1)
+        self.rewards3 = torch.zeros(num_steps, num_processes, 1)   
         self.value_preds = torch.zeros(num_steps + 1, num_processes, 1)
+        self.value_preds2 = torch.zeros(num_steps + 1, num_processes, 1)
+        self.value_preds3 = torch.zeros(num_steps + 1, num_processes, 1)
         self.returns = torch.zeros(num_steps + 1, num_processes, 1)
+        self.returns2 = torch.zeros(num_steps + 1, num_processes, 1)
+        self.returns3 = torch.zeros(num_steps + 1, num_processes, 1)
+        ##
         self.action_log_probs = torch.zeros(num_steps, num_processes, 1)
 
         if action_space.__class__.__name__ == 'Discrete':
@@ -100,11 +109,19 @@ class RolloutStorage(object):
         # Keep track of cliffhanger timesteps
         self.cliffhanger_masks = torch.ones(num_steps + 1, num_processes, 1)
 
+## change
         self.truncated_value_preds = None
+        self.truncated_value_preds2 = None
+        self.truncated_value_preds3 = None
         if self.use_proper_time_limits:
             self.truncated_value_preds = torch.zeros_like(self.value_preds)
+            self.truncated_value_preds2 = torch.zeros_like(self.value_preds2)
+            self.truncated_value_preds3 = torch.zeros_like(self.value_preds3)
 
         self.denorm_value_preds = None
+        self.denorm_value_preds2 = None
+        self.denorm_value_preds3 = None
+##
 
         self.level_seeds = torch.zeros(num_steps, num_processes, 1, dtype=torch.int)
 
@@ -120,9 +137,17 @@ class RolloutStorage(object):
         else:
             self.obs = self.obs.to(device)
         self.recurrent_hidden_states = self.recurrent_hidden_states.to(device)
+##change
         self.rewards = self.rewards.to(device)
+        self.rewards2 = self.rewards2.to(device)
+        self.rewards3 = self.rewards3.to(device)
         self.value_preds = self.value_preds.to(device)
+        self.value_preds2 = self.value_preds2.to(device)
+        self.value_preds3 = self.value_preds3.to(device)
         self.returns = self.returns.to(device)
+        self.returns2 = self.returns2.to(device)
+        self.returns3 = self.returns3.to(device)
+##
         self.action_log_probs = self.action_log_probs.to(device)
         self.action_log_dist = self.action_log_dist.to(device)
         self.actions = self.actions.to(device)
@@ -137,8 +162,11 @@ class RolloutStorage(object):
                     self.truncated_obs[k] = obs.to(device)
             else:
                 self.truncated_obs = self.truncated_obs.to(device)
-
+##change
             self.truncated_value_preds = self.truncated_value_preds.to(device)
+            self.truncated_value_preds2 = self.truncated_value_preds2.to(device)
+            self.truncated_value_preds3 = self.truncated_value_preds3.to(device)
+##
 
     def get_obs(self, idx):
         if self.is_dict_obs:
@@ -151,11 +179,12 @@ class RolloutStorage(object):
             [self.obs[k][index].copy_(obs[k]) for k in self.obs.keys()]
         else:
             self.obs[index].copy_(obs)
-
+##change
     def insert(self, obs, recurrent_hidden_states, actions, action_log_probs, action_log_dist,
-               value_preds, rewards, masks, bad_masks, level_seeds=None, cliffhanger_masks=None):
+               value_preds, value_preds2, value_preds3, rewards, masks, bad_masks, level_seeds=None, cliffhanger_masks=None):
         if len(rewards.shape) == 3: rewards = rewards.squeeze(2)
-
+        # if len(rewards2.shape) == 3: rewards2 = rewards2.squeeze(2)
+        # if len(rewards3.shape) == 3: rewards3 = rewards3.squeeze(2)
         if self.is_dict_obs:
             [self.obs[k][self.step + 1].copy_(obs[k]) for k in self.obs.keys()]
         else:
@@ -172,8 +201,14 @@ class RolloutStorage(object):
         self.actions[self.step].copy_(actions) 
         self.action_log_probs[self.step].copy_(action_log_probs)
         self.action_log_dist[self.step].copy_(action_log_dist)
+
         self.value_preds[self.step].copy_(value_preds)
+        self.value_preds2[self.step].copy_(value_preds2)
+        self.value_preds3[self.step].copy_(value_preds3)
         self.rewards[self.step].copy_(rewards)
+        # self.rewards2[self.step].copy_(rewards2)
+        # self.rewards3[self.step].copy_(rewards3)
+##
         self.masks[self.step + 1].copy_(masks)
         self.bad_masks[self.step + 1].copy_(bad_masks)
 
@@ -201,12 +236,17 @@ class RolloutStorage(object):
         self.masks[0].copy_(self.masks[-1])
         self.bad_masks[0].copy_(self.bad_masks[-1])
         self.cliffhanger_masks[0].copy_(self.cliffhanger_masks[-1])
-
+##change
     def replace_final_return(self, returns):
-        self.rewards[-1] = returns
+        # self.rewards[-1] = returns
+        # self.rewards2[-1] = returns2
+        # self.rewards3[-1] = returns3
+        self.rewards[-1] = (returns + returns2 + returns3)/3
 
     def _compute_truncated_value_preds(self):
         self.truncated_value_preds.copy_(self.value_preds)
+        self.truncated_value_preds2.copy_(self.value_preds2)
+        self.truncated_value_preds3.copy_(self.value_preds3)
         with torch.no_grad():
             # For each process, forward truncated obs
             for i in range(self.num_processes):
@@ -225,68 +265,131 @@ class RolloutStorage(object):
                     rnn_hxs = self._split_batched_lstm_recurrent_hidden_states(rnn_hxs)
                 masks = torch.ones((len(steps), 1), device=self.device)
                 value_preds = self.model.get_value(obs, rnn_hxs, masks)
-
+                value_preds2 = self.model.get_value2(obs,rnn_hxs, masks)
+                value_preds3 = self.model.get_value3(obs,rnn_hxs, masks)
+                print("get compute_truncated_value_pred")
+                
                 self.truncated_value_preds[steps,i,:] = value_preds
+                self.truncated_value_preds2[steps,i,:] = value_preds2
+                self.truncated_value_preds3[steps,i,:] = value_preds3
 
-        return self.truncated_value_preds
+        return self.truncated_value_preds, self.truncated_value_preds2, self.truncated_value_preds3
 
     def compute_gae_returns(self, 
                             returns_buffer,
+                            # returns_buffer2,
+                            # returns_buffer3,
                             next_value, 
+                            next_value2,
+                            next_value3,
                             gamma, 
                             gae_lambda):
+
         self.value_preds[-1] = next_value
+        self.value_preds2[-1] = next_value2
+        self.value_preds3[-1] = next_value3
+
         gae = 0
+        gae2 = 0
+        gae3 = 0
         value_preds = self.value_preds
+        value_preds2 = self.value_preds2
+        value_preds3 = self.value_preds3
 
         if self.use_proper_time_limits:
             # Get truncated value preds
             self._compute_truncated_value_preds()
             value_preds = self.truncated_value_preds
+            value_preds2 = self.truncated_value_preds2
+            value_preds3 = self.truncated_value_preds3
 
         if self.use_popart:
             self.denorm_value_preds = self.model.popart.denormalize(value_preds) # denormalize all value predictions
             value_preds = self.denorm_value_preds
+            self.denorm_value_preds2 = self.model.popart.denormalize(value_preds2) # denormalize all value predictions
+            value_preds2 = self.denorm_value_preds2
+            self.denorm_value_preds3 = self.model.popart.denormalize(value_preds3) # denormalize all value predictions
+            value_preds3 = self.denorm_value_preds3
 
         for step in reversed(range(self.rewards.size(0))):
             delta = self.rewards[step] + \
                 gamma*value_preds[step + 1]*self.masks[step + 1] - value_preds[step]
-
+            
             gae = delta + gamma * gae_lambda * self.masks[step + 1] * gae
             self.returns[step] = gae + value_preds[step]
 
+            delta2 = self.rewards[step] + \
+                gamma*value_preds2[step + 1]*self.masks[step + 1] - value_preds2[step]
+            
+            gae2 = delta2 + gamma * gae_lambda * self.masks[step + 1] * gae2
+            self.returns2[step] = gae2 + value_preds2[step]
+
+            delta3 = self.rewards[step] + \
+                gamma*value_preds3[step + 1]*self.masks[step + 1] - value_preds3[step]
+            
+            gae3 = delta3 + gamma * gae_lambda * self.masks[step + 1] * gae3
+            self.returns3[step] = gae3 + value_preds3[step]
+##
+##change
+
     def compute_discounted_returns(self,
                                    returns_buffer, 
+                                    returns_buffer2,
+                                    returns_buffer3,
                                    next_value,
+                                   next_value2,
+                                   next_value3,
                                    gamma):
         self.value_preds[-1] = next_value
+        self.value_preds2[-1] = next_value2
+        self.value_preds3[-1] = next_value3
         value_preds = self.value_preds
+        value_preds2 = self.value_preds2
+        value_preds3 = self.value_preds3
 
-        if self.use_proper_time_limits:    
+        # if self.use_proper_time_limits:    
+        #     self._compute_truncated_value_preds()
+        #     value_preds = self.truncated_value_preds
+        if self.use_proper_time_limits:
+            # Get truncated value preds
             self._compute_truncated_value_preds()
-            value_preds = self.truncated_value_preds
+            value_preds= self.truncated_value_preds
+            value_preds2= self.truncated_value_preds2
+            value_preds3= self.truncated_value_preds3
+
 
         if self.use_popart:
             self.denorm_value_preds = self.model.popart.denormalize(value_preds) # denormalize all value predictions
+            self.denorm_value_preds2 = self.model.popart.denormalize(value_preds2)
+            self.denorm_value_preds3 = self.model.popart.denormalize(value_preds3)
 
         self.returns[-1] = value_preds[-1]
+        self.returns2[-1] = value_preds2[-1]
+        self.returns3[-1] = value_preds3[-1]
 
         for step in reversed(range(self.rewards.size(0))):
             returns_buffer[step] = returns_buffer[step + 1] * \
                 gamma * self.masks[step + 1] + self.rewards[step]
-
+            returns_buffer2[step] = returns_buffer2[step + 1] * \
+                gamma * self.masks[step + 1] + self.rewards[step]
+            returns_buffer3[step] = returns_buffer3[step + 1] * \
+                gamma * self.masks[step + 1] + self.rewards[step]
+##
+## change
     def compute_returns(self,
                         next_value,
+                        next_value2,
+                        next_value3,
                         use_gae,
                         gamma,
                         gae_lambda):
         if use_gae:
             self.compute_gae_returns(
-                self.returns, next_value, gamma, gae_lambda)
+                self.returns, next_value, next_value2, next_value3, gamma, gae_lambda)
         else:
             self.compute_discounted_returns(
-                self.returns, next_value, gamma)
-
+                self.returns, next_value, next_value2, next_value3, gamma)
+##
     def get_batched_value_loss(self, 
             signed=False, 
             positive_only=False, 
@@ -297,29 +400,49 @@ class RolloutStorage(object):
         Assumes buffer contains pre-computed returns via compute_returns.
         Computes the mean episodic value loss per batch.
         """
-
+## change
         # If agent uses popart, then value_preds are normalized, while 
         # returns are not.
         if self.use_popart:
             value_preds = self.denorm_value_preds[:-1]
+            value_preds2 = self.denorm_value_preds2[:-1]
+            value_preds3 = self.denorm_value_preds3[:-1]
         else:
             value_preds = self.value_preds[:-1]
+            value_preds2 = self.value_preds2[:-1]
+            value_preds3 = self.value_preds3[:-1]
 
         returns = self.returns[:-1]
+        returns2 = self.returns2[:-1]
+        returns3 = self.returns3[:-1]
 
         if signed:
             td = returns - value_preds
+            td2 = returns2 - value_preds2
+            td3 = returns3 - value_preds3
         elif positive_only:
             td = (returns - value_preds).clamp(0)
+            td2 = (returns2 - value_preds2).clamp(0)
+            td3 = (returns3 - value_preds3).clamp(0)
         else:
             td = (returns - value_preds).abs()
+            td2 = (returns2 - value_preds2).abs()
+            td3 = (returns3 - value_preds3).abs()
         if power > 1:
             td = td**power
+            td2 = td2**power
+            td3 = td3**power
 
         batch_td = td.mean(0) # B x 1
+        batch_td2 = td2.mean(0) # B x 1
+        batch_td3 = td3.mean(0) # B x 1
 
         if clipped:
-            batch_td = torch.clamp(batch_td, -1, 1) 
+            batch_td = torch.clamp(batch_td, -1, 1)
+            batch_td2 = torch.clamp(batch_td2, -1, 1)
+            batch_td3 = torch.clamp(batch_td3, -1, 1) 
+        
+        batch_td = (batch_td + batch_td2 + batch_td3)/3
         
         if batched:
             return batch_td
@@ -421,9 +544,15 @@ class RolloutStorage(object):
 
             actions_batch = self.actions.view(-1,
                                             self.actions.size(-1))[indices]
-
+##change batch check
             value_preds_batch = self.value_preds[:-1].view(-1, 1)[indices]
+            value_preds_batch2 = self.value_preds2[:-1].view(-1, 1)[indices]
+            value_preds_batch3 = self.value_preds3[:-1].view(-1, 1)[indices]
+            #value_pred_batch = mean(value_pred_batch, value_pred_batch2, value_pred_batch3)
             return_batch = self.returns[:-1].view(-1, 1)[indices]
+            return_batch2 = self.returns2[:-1].view(-1, 1)[indices]
+            return_batch3 = self.returns3[:-1].view(-1, 1)[indices]
+            #return_batch = mean(return_batch, return_batch2, return_batch3)
 
             masks_batch = self.masks[:-1].view(-1, 1)[indices]
             old_action_log_probs_batch = self.action_log_probs.view(-1,

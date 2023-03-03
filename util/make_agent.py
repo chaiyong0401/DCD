@@ -235,8 +235,9 @@ def make_agent(name, env, args, device='cpu'):
             use_proper_time_limits=use_proper_time_limits,
             use_popart=use_popart
         )
-
-        agent = ACAgent(algo=algo, storage=storage).to(device)
+        print("agent is acagent")
+        agent = ACAgent(algo=algo, storage=storage).to(device)\
+        
 
     else:
         raise ValueError(f'Unsupported RL algorithm {algo}.')

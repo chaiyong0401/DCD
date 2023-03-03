@@ -186,6 +186,8 @@ class VecPreprocessImageWrapper(VecEnvWrapper):
 
 		if self.to_tensor:
 			rews = torch.from_numpy(rews).unsqueeze(dim=1).float()
+			# rews2 = torch.from_numpy(rews2).unsqueeze(dim=1).float()
+			# rews3 = torch.from_numpy(rews3).unsqueeze(dim=1).float()
 
 		return obs, rews, dones, infos
 

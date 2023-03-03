@@ -277,7 +277,7 @@ class Evaluator(object):
 			while len(returns) < self.num_episodes:
 				# Sample actions
 				with torch.no_grad():
-					_, action, _, recurrent_hidden_states = agent.act(
+					_, _, _, action, _, recurrent_hidden_states = agent.act(
 						obs, recurrent_hidden_states, masks, deterministic=deterministic)
 
 				# Observe reward and next obs

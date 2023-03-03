@@ -41,6 +41,10 @@ class ACAgent(object):
 
     def get_value(self, *args, **kwargs):
     	return self.algo.actor_critic.get_value(*args, **kwargs)
+    def get_value2(self, *args, **kwargs):
+    	return self.algo.actor_critic.get_value2(*args, **kwargs)
+    def get_value3(self, *args, **kwargs):
+    	return self.algo.actor_critic.get_value3(*args, **kwargs)
 
     def insert(self, *args, **kwargs):
     	return self.storage.insert(*args, **kwargs)

@@ -5,7 +5,7 @@
     ],
 
     "ued_algo": ["domain_randomization"],
-    "num_processes": [32],
+    "num_processes": [8],
     "num_env_steps": [250000000],
     "num_steps": [256],
     "ppo_epoch": [5],
@@ -28,7 +28,7 @@
     "use_plr": [true],
     "level_replay_prob": [0.8],
     "level_replay_rho":[0.5],
-    "level_replay_seed_buffer_size":[4000],
+    "level_replay_seed_buffer_size":[100],
     "level_replay_temperature": [0.3],
     "level_replay_strategy": ["positive_value_loss"],
     "level_replay_score_transform": ["rank"],
@@ -48,7 +48,7 @@
     "log_plr_buffer_stats": [true],
     "log_replay_complexity": [true],
     "reject_unsolvable_seeds": [false],
-    "screenshot_interval": [1000],
+    "screenshot_interval": [100],
 
     "checkpoint": [true]
   }

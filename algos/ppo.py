@@ -61,13 +61,24 @@ class PPO():
     def update(self, rollouts, discard_grad=False):
         if rollouts.use_popart:
             value_preds = rollouts.denorm_value_preds
+            value_preds2 = rollouts.denorm_value_preds2
+            value_preds3 = rollouts.denorm_value_preds3
         else:
             value_preds = rollouts.value_preds
+            value_preds2 = rollouts.value_preds2
+            value_preds3 = rollouts.value_preds3
 
         advantages = rollouts.returns[:-1] - value_preds[:-1]
+        advantages2 = rollouts.returns2[:-1] - value_preds2[:-1]
+        advantages3 = rollouts.returns3[:-1] - value_preds3[:-1]
+
         advantages = (advantages - advantages.mean()) / (
             advantages.std() + 1e-5)
-
+        advantages2 = (advantages2 - advantages2.mean()) / (
+            advantages2.std() + 1e-5)
+        advantages3 = (advantages3 - advantages3.mean()) / (
+            advantages3.std() + 1e-5)
+        advantages = (advantages + advantages2 + advantages3)/3
         value_loss_epoch = 0
         action_loss_epoch = 0
         dist_entropy_epoch = 0
@@ -88,7 +99,7 @@ class PPO():
                 value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
                         adv_targ = sample
                 
-                values, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
+                values, values2, values3, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
                     obs_batch, recurrent_hidden_states_batch, masks_batch,
                     actions_batch)
                     

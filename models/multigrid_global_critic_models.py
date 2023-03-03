@@ -109,6 +109,14 @@ class MultigridGlobalCriticNetwork(DeviceAwareModule):
             make_fc_layers_with_hidden_sizes(value_fc_layers, input_size=self.global_base_output_size),
             init_(nn.Linear(value_fc_layers[-1], 1))
         )
+        self.critic2 = nn.Sequential(
+            make_fc_layers_with_hidden_sizes(value_fc_layers, input_size=self.global_base_output_size),
+            init_(nn.Linear(value_fc_layers[-1], 1))
+        )
+        self.critic3 = nn.Sequential(
+            make_fc_layers_with_hidden_sizes(value_fc_layers, input_size=self.global_base_output_size),
+            init_(nn.Linear(value_fc_layers[-1], 1))
+        )
 
         apply_init_(self.modules())
 
@@ -186,8 +194,12 @@ class MultigridGlobalCriticNetwork(DeviceAwareModule):
         dist = self.actor(core_features)
         if global_core_features is not None:
             value = self.critic(global_core_features)
+            value2 = self.critic2(global_core_features)
+            value3 = self.critic3(global_core_features)
         else:
             value = 0
+            value2 = 0
+            value3 = 0
 
         if deterministic:
             action = dist.mode()
@@ -195,6 +207,7 @@ class MultigridGlobalCriticNetwork(DeviceAwareModule):
             action = dist.sample()
 
         action_log_dist = dist.logits
+        value = (value+value2+value3)/3
 
         return value, action, action_log_dist, rnn_hxs
 
@@ -203,10 +216,14 @@ class MultigridGlobalCriticNetwork(DeviceAwareModule):
 
         if global_core_features is not None:
             value = self.critic(global_core_features)
+            value2 = self.critic2(global_core_features)
+            value3 = self.critic3(global_core_features)
         else:
             value = 0
+            value2 = 0
+            value3 = 0
 
-        return value
+        return value, value2, value3
 
     def evaluate_actions(self, inputs, rnn_hxs, masks, action):
         core_features, rnn_hxs, global_core_features = self._forward_base(inputs, rnn_hxs, masks)
@@ -214,10 +231,14 @@ class MultigridGlobalCriticNetwork(DeviceAwareModule):
         dist = self.actor(core_features)
         if global_core_features is not None:
             value = self.critic(global_core_features)
+            value2 = self.critic2(global_core_features)
+            value3 = self.critic3(global_core_features)
         else:
             value = 0
+            value2 = 0
+            value3 = 0
 
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy().mean()
 
-        return value, action_log_probs, dist_entropy, rnn_hxs
+        return value, value2, value3, action_log_probs, dist_entropy, rnn_hxs

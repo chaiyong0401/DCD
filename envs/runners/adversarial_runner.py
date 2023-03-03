@@ -500,14 +500,13 @@ class AdversarialRunner(object):
             # Sample actions
             with torch.no_grad():
                 obs_id = agent.storage.get_obs(step)
-                value, action, action_log_dist, recurrent_hidden_states = agent.act(
+                value, value2, value3, action, action_log_dist, recurrent_hidden_states = agent.act(
                     obs_id, agent.storage.get_recurrent_hidden_state(step), agent.storage.masks[step])
                 if self.is_discrete_actions:
                     action_log_prob = action_log_dist.gather(-1, action)
                 else:
                     action_log_prob = action_log_dist
-
-            # Observe reward and next obs
+            # Observe reward and  obs
             reset_random = self.is_dr and not args.use_plr
             _action = agent.process_action(action.cpu())
 
@@ -517,6 +516,7 @@ class AdversarialRunner(object):
                 obs, reward, done, infos = self.venv.step_env(_action, reset_random=reset_random)
                 if args.clip_reward:
                     reward = torch.clamp(reward, -args.clip_reward, args.clip_reward)
+
 
             if not is_env and step >= num_steps - 1:
                 # Handle early termination due to cliffhanger rollout
@@ -580,7 +580,7 @@ class AdversarialRunner(object):
             agent.insert(
                 obs, recurrent_hidden_states, 
                 action, action_log_prob, action_log_dist, 
-                value, reward, masks, bad_masks, 
+                value, value2, value3, reward, masks, bad_masks, 
                 level_seeds=current_level_seeds,
                 cliffhanger_masks=cliffhanger_masks)
 
@@ -600,9 +600,15 @@ class AdversarialRunner(object):
                 next_value = agent.get_value(
                     obs_id, agent.storage.get_recurrent_hidden_state(-1),
                     agent.storage.masks[-1]).detach()
-
+                next_value2 = agent.get_value2(
+                    obs_id, agent.storage.get_recurrent_hidden_state(-1),
+                    agent.storage.masks[-1]).detach()
+                next_value3 = agent.get_value3(
+                    obs_id, agent.storage.get_recurrent_hidden_state(-1),
+                    agent.storage.masks[-1]).detach()
+                
             agent.storage.compute_returns(
-                next_value, args.use_gae, args.gamma, args.gae_lambda)
+                next_value,next_value2,next_value3, args.use_gae, args.gamma, args.gae_lambda)
 
             # Compute batched value loss if using value_l1-maximizing adversary
             if self.requires_batched_vloss:
